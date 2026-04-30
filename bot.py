@@ -1,4 +1,4 @@
-import requests, feedparser, time, json, os
+]import requests, feedparser, time, json, os
 from datetime import datetime
 
 TELEGRAM_TOKEN = "8764281464:AAFT9UM0M4Wd6Z_8DQ8A5XOO5xaPhChKGMw"
