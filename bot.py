@@ -14,7 +14,7 @@ ultimo_update_id = 0
 
 def manda_messaggio(testo):
     global ultimo_segnale_testo
-    if "SEGNALE" in testo.upper() or "BUY" in testo or "SELL" in testo:
+    if "BUY" in testo or "SELL" in testo or "SEGNALE" in testo.upper():
         ultimo_segnale_testo = testo
     url = "https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": testo, "parse_mode": "HTML"})
@@ -69,20 +69,20 @@ def formatta_segnale(titolo, analisi, fonte, tipo):
     else: emoji_rischio = "🟢"
     tipo_label = "🐋 WHALE ALERT" if tipo == "whale" else "📰 NEWS SIGNAL"
     salva_segnale(token, segnale, target, stoploss, durata)
-    return (tipo_label + "  |  " + emoji_top + " <b>" + emoji_segnale + " " + token + "</b>\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "🎯 <b>Target:</b> " + target + "\n"
-        "🛑 <b>Stop Loss:</b> " + stoploss + "\n"
-        "⏳ <b>Durata:</b> " + durata + "\n"
-        + emoji_rischio + " <b>Rischio:</b> " + rischio + "\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "💬 " + motivo + "\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "📌 <i>" + titolo + "</i>\n"
+    return (tipo_label + "  |  " + emoji_top + " <b>" + emoji_segnale + " " + token + "</b>\n" +
+        "━━━━━━━━━━━━━━━━━━\n" +
+        "🎯 <b>Target:</b> " + target + "\n" +
+        "🛑 <b>Stop Loss:</b> " + stoploss + "\n" +
+        "⏳ <b>Durata:</b> " + durata + "\n" +
+        emoji_rischio + " <b>Rischio:</b> " + rischio + "\n" +
+        "━━━━━━━━━━━━━━━━━━\n" +
+        "💬 " + motivo + "\n" +
+        "━━━━━━━━━━━━━━━━━━\n" +
+        "📌 <i>" + titolo + "</i>\n" +
         "🔗 " + fonte)
 
 def genera_riassunto(segnali):
-    prompt = "Sei un trader crypto aggressivo. Utente ha 100 CHF, investe a lungo termine, vuole rendimenti alti. TOP 3 opportunita da questi segnali: token, perche entrare, durata, potenziale. Diretto. Max 15 righe. Segnali: " + " | ".join(segnali)
+    prompt = "Sei un trader crypto aggressivo. Utente ha 100 CHF, TOP 3 opportunita. Diretto. Segnali: " + " | ".join(segnali)
     r = requests.post("https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": "Bearer " + GROQ_KEY, "Content-Type": "application/json"},
         json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 400})
@@ -93,90 +93,86 @@ def genera_riassunto(segnali):
 
 def riassunto_serale(segnali):
     if not segnali:
-        manda_messaggio("🌙 <b>RECAP SERALE</b>\nNessun segnale significativo oggi. Mercato tranquillo.")
+        manda_messaggio("🌙 Nessun segnale oggi.")
         return
-    prompt = "Sei un trader crypto aggressivo. Recap serale: TOP 3 opportunita di oggi, sentiment generale, cosa aspettarsi domani. Diretto e aggressivo. Max 20 righe. Segnali: " + " | ".join(segnali)
+    prompt = "Recap serale TOP 3. Segnali: " + " | ".join(segnali)
     r = requests.post("https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": "Bearer " + GROQ_KEY, "Content-Type": "application/json"},
         json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 500})
     data = r.json()
     if "choices" in data:
-        manda_messaggio("🌙 <b>RECAP SERALE — TOP DI OGGI</b>\n━━━━━━━━━━━━━━━━━━\n" + data["choices"][0]["message"]["content"])
+        manda_messaggio("🌙 RECAP SERALE\n" + data["choices"][0]["message"]["content"])
 
 def revisione_settimanale():
     if not os.path.exists(STORICO_FILE):
-        manda_messaggio("📊 <b>REVISIONE SETTIMANALE</b>\nNessun segnale salvato ancora.")
         return
     with open(STORICO_FILE, "r") as f:
         storico = json.load(f)
     da_verificare = [s for s in storico if not s["verificato"]]
     if not da_verificare:
-        manda_messaggio("📊 <b>REVISIONE SETTIMANALE</b>\nNessun nuovo segnale da verificare.")
         return
     testo = ""
     for s in da_verificare:
         prezzo = get_prezzo(s["token"])
-        prezzo_str = str(prezzo) + " USD" if prezzo else "non disponibile"
-        testo += s["data"] + " | " + s["token"] + " | " + s["segnale"] + " | Target: " + s["target"] + " | Stop: " + s["stoploss"] + " | Prezzo ora: " + prezzo_str + "\n"
+        prezzo_str = str(prezzo) + " USD" if prezzo else "?"
+        testo += s["data"] + " | " + s["token"] + " | " + s["segnale"] + " | Target: " + s["target"] + " | Stop: " + s["stoploss"] + " | Ora: " + prezzo_str + "\n"
         s["verificato"] = True
     with open(STORICO_FILE, "w") as f:
         json.dump(storico, f)
-    prompt = "Sei un trader crypto. Analizza questi segnali della settimana scorsa con i prezzi attuali. Per ognuno: previsione giusta o sbagliata, cosa ha funzionato, cosa imparare per migliorare. Onesto e diretto. Segnali: " + testo
+    prompt = "Analisi performance settimanale: " + testo
     r = requests.post("https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": "Bearer " + GROQ_KEY, "Content-Type": "application/json"},
         json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}], "max_tokens": 600})
     data = r.json()
     if "choices" in data:
-        manda_messaggio("📊 <b>REVISIONE SETTIMANALE</b>\n━━━━━━━━━━━━━━━━━━\n" + data["choices"][0]["message"]["content"])
+        manda_messaggio("📊 REVISIONE SETTIMANALE\n" + data["choices"][0]["message"]["content"])
 
 def gestisci_comandi():
-    global ultimo_update_id, ultimo_segnale_testo
-    url = "https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/getUpdates"
+    global ultimo_update_id
     try:
-        r = requests.get(url, params={"offset": ultimo_update_id + 1, "timeout": 10})
+        r = requests.get("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/getUpdates",
+                        params={"offset": ultimo_update_id + 1, "timeout": 5})
         dati = r.json()
         if dati["ok"] and dati["result"]:
             for msg in dati["result"]:
-                if "message" not in msg or "text" not in msg["message"]:
-                    continue
-                testo = msg["message"]["text"]
-                chat_id = msg["message"]["chat"]["id"]
-                ultimo_update_id = msg["update_id"]
-                if testo == "/start":
-                    risposta = "🤖 Crypto Bot attivo!\n\nComandi:\n/btc - Prezzo Bitcoin\n/top5 - Top 5 crypto\n/ultimo - Ultimo segnale\n/aiuto - Lista comandi"
-                elif testo == "/btc":
-                    risposta = get_prezzo_btc()
-                elif testo == "/top5":
-                    risposta = get_top5()
-                elif testo == "/ultimo":
-                    risposta = ultimo_segnale_testo or "Nessun segnale ancora"
-                elif testo == "/aiuto":
-                    risposta = "📋 Comandi:\n/start - Benvenuto\n/btc - Prezzo BTC\n/top5 - Top 5 crypto\n/ultimo - Ultimo segnale\n/aiuto - Questo messaggio"
-                else:
-                    continue
-                requests.post("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage",
-                              data={"chat_id": chat_id, "text": risposta})
+                if "message" in msg and "text" in msg["message"]:
+                    testo = msg["message"]["text"]
+                    chat_id = msg["message"]["chat"]["id"]
+                    ultimo_update_id = msg["update_id"]
+                    if testo == "/start":
+                        risp = "🤖 Crypto Bot attivo!\n/btc - Prezzo Bitcoin\n/top5 - Top 5 crypto\n/ultimo - Ultimo segnale\n/aiuto - Comandi"
+                    elif testo == "/btc":
+                        risp = get_prezzo_btc()
+                    elif testo == "/top5":
+                        risp = get_top5()
+                    elif testo == "/ultimo":
+                        risp = ultimo_segnale_testo or "Nessun segnale"
+                    elif testo == "/aiuto":
+                        risp = "/start /btc /top5 /ultimo /aiuto"
+                    else:
+                        continue
+                    requests.post("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage",
+                                data={"chat_id": chat_id, "text": risp})
     except:
         pass
 
 def get_prezzo_btc():
     try:
         r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=10)
-        prezzo = r.json()["bitcoin"]["usd"]
-        return f"💰 Bitcoin: ${prezzo:,.2f} USD"
+        return f"💰 Bitcoin: ${r.json()['bitcoin']['usd']:,.2f} USD"
     except:
-        return "❌ Errore nel recuperare il prezzo BTC"
+        return "Errore prezzo BTC"
 
 def get_top5():
     try:
         r = requests.get("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=5&page=1", timeout=10)
         coins = r.json()
-        risposta = "🏆 Top 5 Crypto:\n\n"
+        risp = "🏆 Top 5 Crypto:\n"
         for i, c in enumerate(coins, 1):
-            risposta += f"{i}. {c['name']} ({c['symbol'].upper()}) - ${c['current_price']:,.2f}\n"
-        return risposta
+            risp += f"{i}. {c['name']} ({c['symbol'].upper()}) - ${c['current_price']:,.2f}\n"
+        return risp
     except:
-        return "❌ Errore nel recuperare la top 5"
+        return "Errore top 5"
 
 FEEDS = [
     "https://cointelegraph.com/rss",
@@ -186,23 +182,28 @@ FEEDS = [
 
 notizie_viste = set()
 print("Bot avviato!")
-manda_messaggio("⚡ <b>CRYPTO BOT ATTIVO</b> ⚡\nRecap serale ore 20:00\nRevisione settimanale domenica 12:00")
+manda_messaggio("⚡ CRYPTO BOT ATTIVO ⚡")
 
 while True:
     ora = datetime.now().strftime("%H:%M")
     data = datetime.now().strftime("%Y-%m-%d")
     giorno = datetime.now().strftime("%A")
+
     if ora == "20:00" and ultimo_riassunto_giornaliero != data:
         ultimo_riassunto_giornaliero = data
         riassunto_serale(segnali_giornalieri)
         segnali_giornalieri = []
-        print("Recap serale inviato!")
-    if giorno == "Sunday" and ora == "12:00" and ultimo_riassunto_giornaliero != "sunday_" + data:
-        ultimo_riassunto_giornaliero = "sunday_" + data
+
+    if giorno == "Sunday" and ora == "12:00" and ultimo_riassunto_giornaliero != "sun_" + data:
+        ultimo_riassunto_giornaliero = "sun_" + data
         revisione_settimanale()
-        print("Revisione settimanale inviata!")
-    gestisci_comandi()
-    segnali_ciclo = []
+
+    # Controlla comandi ogni 5 secondi per 15 minuti
+    for _ in range(180):
+        gestisci_comandi()
+        time.sleep(5)
+
+    # Poi controlla le news
     for feed_url in FEEDS:
         tipo = "whale" if "whale-alert" in feed_url else "news"
         try:
@@ -215,15 +216,6 @@ while True:
                 notizie_viste.add(entry.link)
                 analisi = analizza_news(entry.title, tipo)
                 if "IGNORA" not in analisi:
-                    segnali_ciclo.append(entry.title + ": " + analisi)
-                    segnali_giornalieri.append(entry.title + ": " + analisi)
+                    segnali_giornalieri.append(entry.title)
                     msg = formatta_segnale(entry.title, analisi, entry.link, tipo)
                     manda_messaggio(msg)
-                    print("Inviata: " + entry.title)
-                else:
-                    print("Ignorata: " + entry.title)
-    if segnali_ciclo:
-        riassunto = genera_riassunto(segnali_ciclo)
-        if riassunto:
-            manda_messaggio("🏆 <b>RIASSUNTO CICLO — TOP 3</b>\n━━━━━━━━━━━━━━━━━━\n" + riassunto)
-    time.sleep(900)
