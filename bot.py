@@ -5,7 +5,8 @@ TELEGRAM_TOKEN = "8764281464:AAFT9UM0M4Wd6Z_8DQ8A5XOO5xaPhChKGMw"
 CHAT_ID = "1020078682"
 GROQ_KEY = os.environ.get("GROQ_KEY")
 HEADERS = {"User-Agent": "Mozilla/5.0"}
-STORICO_FILE = os.path.expanduser("~/Desktop/storico_segnali.json")
+STORICO_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+"storico_segnali.json")
 
 ultimo_riassunto_giornaliero = ""
 segnali_giornalieri = []
